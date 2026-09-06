@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Zykluskurve</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF7F4;
+    --card:#FFFFFF;
+    --ink:#2B2430;
+    --muted:#8B7E88;
+    --line:#E7DCDA;
+    --accent:#C6597A;
+    --accent-deep:#9C3B5A;
+    --safe:#6E8B5D;
+    --safe-bg:#EBF0E5;
+    --accent-bg:#F7E7EC;
+    --mucus-dry:#D9D2D6;
+    --mucus-damp:#E9C9D2;
+    --mucus-creamy:#DB93A8;
+    --mucus-egg:#C6597A;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    display:flex; justify-content:center;
+  }
+  .app{
+    width:100%; max-width:480px; min-height:100vh;
+    background:var(--bg); position:relative;
+    padding-bottom:78px;
+  }
+  h1,h2,h3{ font-family:'Fraunces', serif; font-weight:600; margin:0 0 4px; }
+  header.top{
+    padding:22px 20px 10px; position:sticky; top:0; background:var(--bg); z-index:5;
+  }
+  header.top h1{ font-size:1.5rem; letter-spacing:-0.01em; }
+  header.top p{ margin:2px 0 0; color:var(--muted); font-size:0.85rem; }
+
+  .panel{ display:none; padding:6px 20px 20px; animation:fade .25s ease; }
+  .panel.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .status-card{
+    background:var(--card); border-radius:18px; padding:20px;
+    border:1px solid var(--line); margin-bottom:18px;
+  }
+  .status-card.fertile{ background:var(--accent-bg); border-color:#EAC3CE; }
+  .status-card.safe{ background:var(--safe-bg); border-color:#D3DFC7; }
+  .status-label{ font-family:'Fraunces', serif; font-size:1.3rem; font-weight:600; }
+  .status-label.fertile{ color:var(--accent-deep); }
+  .status-label.safe{ color:var(--safe); }
+  .status-sub{ color:var(--muted); font-size:0.85rem; margin-top:6px; line-height:1.5; }
+  .status-meta{ display:flex; gap:18px; margin-top:14px; }
+  .status-meta div{ font-size:0.75rem; color:var(--muted); }
+  .status-meta strong{ display:block; font-size:1.1rem; color:var(--ink); font-family:'Fraunces', serif; }
+
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; }
+  .card h3{ font-size:1rem; margin-bottom:12px; }
+
+  label{ display:block; font-size:0.8rem; color:var(--muted); margin:14px 0 6px; }
+  label:first-child{ margin-top:0; }
+  input[type=date], input[type=number], select, textarea{
+    width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--line);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.95rem; background:#fff; color:var(--ink);
+  }
+  textarea{ resize:vertical; min-height:60px; }
+  .row{ display:flex; gap:10px; }
+  .row > *{ flex:1; }
+  .toggle-row{ display:flex; align-items:center; gap:10px; margin:14px 0 6px; }
+  .toggle-row input{ width:auto; }
+  .toggle-row span{ font-size:0.85rem; }
+
+  details.advanced{ margin-top:12px; border-top:1px dashed var(--line); padding-top:8px; }
+  details.advanced summary{ font-size:0.8rem; color:var(--muted); cursor:pointer; }
+
+  button.primary{
+    width:100%; padding:13px; border:none; border-radius:12px; margin-top:18px;
+    background:var(--accent-deep); color:#fff; font-size:0.95rem; font-weight:600;
+    font-family:'IBM Plex Sans', sans-serif; cursor:pointer;
+  }
+  button.primary:active{ opacity:0.85; }
+  button.ghost{
+    width:100%; padding:11px; border-radius:12px; margin-top:10px;
+    background:transparent; border:1px solid var(--line); color:var(--muted); font-size:0.85rem; cursor:pointer;
+  }
+
+  .save-msg{ text-align:center; font-size:0.8rem; color:var(--safe); margin-top:8px; min-height:1em; }
+
+  /* chart */
+  svg.chart{ width:100%; height:auto; display:block; }
+  .legend{ display:flex; flex-wrap:wrap; gap:12px; margin-top:10px; font-size:0.72rem; color:var(--muted); }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+  /* calendar */
+  .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .cal-head button{ background:none; border:none; font-size:1.1rem; color:var(--muted); cursor:pointer; padding:4px 10px; }
+  .cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:5px; text-align:center; }
+  .cal-grid .dow{ font-size:0.65rem; color:var(--muted); padding-bottom:4px; }
+  .cal-day{ aspect-ratio:1; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    font-size:0.78rem; position:relative; background:#fff; border:1px solid var(--line); color:var(--ink); }
+  .cal-day.empty{ background:transparent; border:none; }
+  .cal-day.period{ background:var(--accent-deep); color:#fff; border-color:var(--accent-deep); }
+  .cal-day.fertile{ background:var(--accent-bg); border-color:#EAC3CE; }
+  .cal-day.safe{ background:var(--safe-bg); border-color:#D3DFC7; }
+  .cal-day.today{ box-shadow:0 0 0 2px var(--ink) inset; font-weight:600; }
+  .cal-day.tappable{ cursor:pointer; }
+  .cal-day.tappable:active{ opacity:0.7; }
+
+  .period-mode-btn{
+    width:100%; padding:11px; border-radius:12px; margin-bottom:10px; cursor:pointer;
+    background:transparent; border:1px solid var(--accent-deep); color:var(--accent-deep);
+    font-family:'IBM Plex Sans', sans-serif; font-size:0.88rem; font-weight:600;
+  }
+  .period-mode-btn.active{ background:var(--accent-deep); color:#fff; }
+  .period-hint{ font-size:0.75rem; color:var(--muted); text-align:center; margin:-2px 0 10px; display:none; line-height:1.4; }
+  .period-hint.show{ display:block; }
+
+  .info p{ font-size:0.88rem; line-height:1.6; color:var(--ink); }
+  .info h4{ font-family:'Fraunces', serif; font-size:0.95rem; margin:16px 0 6px; }
+  .disclaimer{ font-size:0.75rem; color:var(--muted); background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:14px; line-height:1.55; margin-top:6px; }
+
+  nav.tabbar{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px; background:var(--card); border-top:1px solid var(--line);
+    display:flex; padding:8px 6px 14px; z-index:10;
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; font-family:'IBM Plex Sans', sans-serif;
+    font-size:0.72rem; color:var(--muted); padding:8px 2px 2px; cursor:pointer; border-radius:10px;
+  }
+  nav.tabbar button .ic{ display:block; font-size:1.15rem; margin-bottom:3px; }
+  nav.tabbar button.active{ color:var(--accent-deep); background:var(--accent-bg); }
+
+  ::placeholder{ color:#C9BFC5; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <h1>Zykluskurve</h1>
+    <p id="headerSub">Deine Beobachtungen, privat auf diesem Gerät.</p>
+  </header>
+
+  <!-- HEUTE -->
+  <section class="panel active" id="tab-heute">
+    <div class="status-card" id="statusCard">
+      <div class="status-label" id="statusLabel">–</div>
+      <div class="status-sub" id="statusSub">Noch keine Daten erfasst.</div>
+      <div class="status-meta">
+        <div><strong id="metaCycleDay">–</strong>Zyklustag</div>
+        <div><strong id="metaCycleLen">–</strong>Ø Zykluslänge</div>
+        <div><strong id="metaNextPeriod">–</strong>Periode erwartet</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Heutiger Eintrag</h3>
+      <label for="inpDate">Datum</label>
+      <input type="date" id="inpDate">
+
+      <div class="toggle-row">
+        <input type="checkbox" id="inpPeriod">
+        <span>Periode / Blutung heute</span>
+      </div>
+
+      <label for="inpTemp">Basaltemperatur (°C)</label>
+      <input type="number" id="inpTemp" step="0.01" min="34" max="40" placeholder="z. B. 36.45">
+
+      <label for="inpMucus">Zervixschleim</label>
+      <select id="inpMucus">
+        <option value="">Nicht beobachtet</option>
+        <option value="trocken">Trocken / nichts spürbar</option>
+        <option value="feucht">Feucht</option>
+        <option value="cremig">Cremig, weißlich</option>
+        <option value="eiweiss">Eiweißartig, spinnbar, glasig</option>
+      </select>
+
+      <div class="toggle-row">
+        <input type="checkbox" id="inpPain">
+        <span>Mittelschmerz / Eisprungziehen</span>
+      </div>
+
+      <details class="advanced">
+        <summary>Erweiterte Beobachtung (optional)</summary>
+        <label for="inpCervix">Muttermund</label>
+        <select id="inpCervix">
+          <option value="">Nicht beobachtet</option>
+          <option value="tief_geschlossen">Tief, fest, geschlossen</option>
+          <option value="mittel">Mittel</option>
+          <option value="hoch_offen">Hoch, weich, leicht geöffnet</option>
+        </select>
+      </details>
+
+      <label for="inpNotes">Notizen</label>
+      <textarea id="inpNotes" placeholder="Störfaktoren, Schlaf, Krankheit …"></textarea>
+
+      <button class="primary" id="btnSave">Eintrag speichern</button>
+      <div class="save-msg" id="saveMsg"></div>
+    </div>
+  </section>
+
+  <!-- VERLAUF -->
+  <section class="panel" id="tab-verlauf">
+    <div class="card">
+      <h3>Temperaturkurve – aktueller Zyklus</h3>
+      <div id="chartWrap"><svg class="chart" id="chartSvg" viewBox="0 0 340 200"></svg></div>
+      <div class="legend">
+        <span><span class="dot" style="background:var(--mucus-dry)"></span>trocken</span>
+        <span><span class="dot" style="background:var(--mucus-damp)"></span>feucht</span>
+        <span><span class="dot" style="background:var(--mucus-creamy)"></span>cremig</span>
+        <span><span class="dot" style="background:var(--mucus-egg)"></span>eiweißartig</span>
+        <span><span class="dot" style="background:var(--accent-deep)"></span>Periode</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Auswertung</h3>
+      <p id="ruleExplainer" style="font-size:0.85rem; line-height:1.6; color:var(--ink);">–</p>
+    </div>
+  </section>
+
+  <!-- KALENDER -->
+  <section class="panel" id="tab-kalender">
+    <div class="card">
+      <div class="cal-head">
+        <button id="calPrev">←</button>
+        <h3 id="calTitle">–</h3>
+        <button id="calNext">→</button>
+      </div>
+      <button class="period-mode-btn" id="btnPeriodMode">Periode eingeben</button>
+      <div class="period-hint" id="periodHint">Tippe auf die Tage, an denen du deine Periode hattest. Nochmal tippen, um zu entfernen.</div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </section>
+
+  <!-- INFO -->
+  <section class="panel info" id="tab-info">
+    <div class="card">
+      <h3>Wie diese App rechnet</h3>
+      <h4>Temperaturregel (3-über-6)</h4>
+      <p>Sobald 6 niedrigere Werte vorliegen und danach 3 Werte in Folge darüber liegen (der dritte mindestens 0,2 °C über dem höchsten der 6 Basiswerte), gilt der Temperaturanstieg als bestätigt. Ab dem Abend des 3. erhöhten Tages beginnt danach die unfruchtbare Phase.</p>
+      <h4>Schleimregel</h4>
+      <p>Der Höhepunkt des Zervixschleims ist der letzte Tag mit dem fruchtbarsten Schleimbild (eiweißartig), bevor die Qualität wieder abnimmt. Die unfruchtbare Phase beginnt frühestens am Abend des 4. Tages danach.</p>
+      <h4>Kombinierte Regel</h4>
+      <p>Diese App zeigt "unfruchtbar nach dem Eisprung" erst an, wenn <em>beide</em> Regeln erfüllt sind – es gilt jeweils die spätere der beiden Regeln, wie in der symptothermalen Methode üblich.</p>
+      <h4>Spermien- und Eizellüberlebensdauer</h4>
+      <p>Spermien können bei fruchtbarem Zervixschleim bis zu etwa 5 Tage überleben, die Eizelle ist nach dem Eisprung etwa 12–24 Stunden befruchtungsfähig. Der Eisprung selbst folgt typischerweise 28–36 Stunden nach Beginn des LH-Anstiegs bzw. 8–20 Stunden nach dem LH-Gipfel im Blut. Genau deshalb kombiniert die symptothermale Methode Schleim- und Temperaturbeobachtung, statt sich auf eine reine Tageszählung zu verlassen.</p>
+      <h4>Vor dem ersten Temperaturanstieg</h4>
+      <p>Solange in den ersten Zyklen noch keine 12 ausgewerteten Zyklen vorliegen, verwendet die App die vorsichtige "Minus-8-Regel bzw. Tag-6-Regel": der früheste Tag mit relativ sicher unfruchtbarem Status vor dem erwarteten fruchtbaren Fenster liegt konservativ. Mit mehr erfassten Zyklen wird diese Schätzung individueller.</p>
+    </div>
+    <div class="disclaimer">
+      Diese App ist ein persönliches Auswertungswerkzeug und kein zertifiziertes Medizinprodukt. Sie ersetzt nicht das Erlernen der symptothermalen Methode in einem anerkannten Kurs (z. B. Sensiplan) oder die Rücksprache mit einer NFP-Fachkraft/Frauenärztin – besonders wichtig für die ersten Zyklen und bei unregelmäßigen oder unklaren Werten. Miss die Temperatur nach Möglichkeit täglich zur gleichen Zeit direkt nach dem Aufwachen, vor dem Aufstehen.
+    </div>
+
+    <div class="card">
+      <h3>Alte Daten wiederherstellen</h3>
+      <p style="font-size:0.82rem; color:var(--muted); margin:0 0 10px;">Falls du früher Daten eingetragen hast, während diese App direkt hier im Chat lief (nicht als heruntergeladene Datei), kann hier geprüft werden, ob davon noch etwas im Claude-Kontospeicher liegt.</p>
+      <button class="ghost" id="btnRecover">Nach alten Daten suchen</button>
+      <div class="save-msg" id="recoverMsg"></div>
+    </div>
+
+    <div class="card">
+      <h3>Automatischer Sync (über GitHub Gist)</h3>
+      <p style="font-size:0.82rem; color:var(--muted); margin:0 0 10px;">Einmal einrichten, dann synchronisiert die App automatisch zwischen deinen Geräten – ohne dass du selbst etwas exportieren musst.</p>
+      <label for="ghToken">GitHub-Zugriffscode (Personal Access Token)</label>
+      <input type="password" id="ghToken" placeholder="ghp_…">
+      <label for="ghGistId">Gist-ID <span style="color:var(--muted);">(leer lassen beim allerersten Gerät)</span></label>
+      <input type="text" id="ghGistId" placeholder="wird automatisch ausgefüllt">
+      <button class="ghost" id="btnGhSetup">Einrichten / Gist erstellen</button>
+      <button class="ghost" id="btnGhSync">Jetzt synchronisieren</button>
+      <div class="save-msg" id="ghStatus"></div>
+    </div>
+
+    <div class="card">
+      <h3>Daten sichern / übertragen</h3>
+      <p style="font-size:0.82rem; color:var(--muted); margin:0 0 10px;">Diese Daten liegen nur in diesem Browser auf diesem Gerät. Exportiere sie regelmäßig als Text, um ein Backup zu haben oder sie auf ein anderes Gerät zu übertragen.</p>
+      <button class="ghost" id="btnExport">Daten exportieren</button>
+      <textarea id="exportBox" style="margin-top:8px; display:none; font-size:0.7rem;" rows="4" readonly></textarea>
+      <button class="ghost" id="btnCopyExport" style="display:none;">In Zwischenablage kopieren</button>
+
+      <label for="importBox" style="margin-top:16px;">Daten importieren (Text einfügen)</label>
+      <textarea id="importBox" rows="4" placeholder="Hier exportierten Text einfügen …"></textarea>
+      <button class="ghost" id="btnImport">Importieren</button>
+      <div class="save-msg" id="importMsg"></div>
+    </div>
+
+
+    <button class="ghost" id="btnReset">Alle Daten löschen</button>
+  </section>
+
+  <nav class="tabbar">
+    <button class="active" data-tab="heute"><span class="ic">●</span>Heute</button>
+    <button data-tab="verlauf"><span class="ic">〰</span>Verlauf</button>
+    <button data-tab="kalender"><span class="ic">▦</span>Kalender</button>
+    <button data-tab="info"><span class="ic">ⓘ</span>Info</button>
+  </nav>
+</div>
+
+<script>
+const MUCUS_RANK = { "": 0, "trocken": 1, "feucht": 2, "cremig": 3, "eiweiss": 4 };
+const MUCUS_COLOR = { "": null, "trocken":"var(--mucus-dry)","feucht":"var(--mucus-damp)","cremig":"var(--mucus-creamy)","eiweiss":"var(--mucus-egg)" };
+const MUCUS_LABEL = { "": "–", "trocken":"trocken","feucht":"feucht","cremig":"cremig","eiweiss":"eiweißartig" };
+
+let data = { entries: {} };
+let calCursor = new Date();
+calCursor.setDate(1);
+
+function pad(n){ return n<10 ? "0"+n : ""+n; }
+function fmt(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function parse(s){ const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); }
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+function daysBetween(a,b){ return Math.round((b-a)/86400000); }
+
+async function loadData(){
+  try{
+    const raw = localStorage.getItem('cycle_data');
+    if(raw) data = JSON.parse(raw);
+  }catch(e){ /* first run, nothing stored yet */ }
+}
+async function saveData(){
+  try{ localStorage.setItem('cycle_data', JSON.stringify(data)); }
+  catch(e){ console.error("Speichern fehlgeschlagen", e); alert("Speichern ist fehlgeschlagen. Ist im Safari-Browser eventuell der private Modus aktiv?"); }
+  pushToGistSilently();
+}
+
+function ghConfig(){
+  return { token: localStorage.getItem('gh_token') || "", gistId: localStorage.getItem('gh_gist_id') || "" };
+}
+function ghHeaders(token){
+  return { "Authorization": "token " + token, "Accept": "application/vnd.github+json", "Content-Type": "application/json" };
+}
+async function ghErrorDetail(res){
+  try{ const j = await res.json(); return j.message ? " – " + j.message : ""; }
+  catch(e){ return ""; }
+}
+async function createGist(token){
+  const res = await fetch('https://api.github.com/gists', {
+    method: 'POST', headers: ghHeaders(token),
+    body: JSON.stringify({ description: "Zykluskurve Daten (privat)", public: false,
+      files: { "cycle_data.json": { content: JSON.stringify(data) } } })
+  });
+  if(!res.ok) throw new Error("Gist konnte nicht erstellt werden (" + res.status + ")" + await ghErrorDetail(res));
+  const json = await res.json();
+  return json.id;
+}
+async function pullFromGist(token, gistId){
+  const res = await fetch('https://api.github.com/gists/' + gistId, { headers: ghHeaders(token) });
+  if(!res.ok) throw new Error("Gist konnte nicht gelesen werden (" + res.status + ")" + await ghErrorDetail(res));
+  const json = await res.json();
+  const content = json.files && json.files["cycle_data.json"] && json.files["cycle_data.json"].content;
+  if(!content) return null;
+  return JSON.parse(content);
+}
+async function pushToGist(token, gistId){
+  const res = await fetch('https://api.github.com/gists/' + gistId, {
+    method: 'PATCH', headers: ghHeaders(token),
+    body: JSON.stringify({ files: { "cycle_data.json": { content: JSON.stringify(data) } } })
+  });
+  if(!res.ok) throw new Error("Gist konnte nicht aktualisiert werden (" + res.status + ")" + await ghErrorDetail(res));
+}
+async function pushToGistSilently(){
+  const { token, gistId } = ghConfig();
+  if(!token || !gistId) return;
+  try{ await pushToGist(token, gistId); }catch(e){ /* fails quietly, next sync will retry */ }
+}
+async function pullAndMergeOnStartup(){
+  const { token, gistId } = ghConfig();
+  if(!token || !gistId) return;
+  try{
+    const remote = await pullFromGist(token, gistId);
+    if(remote && remote.entries){
+      data.entries = { ...remote.entries, ...data.entries };
+      localStorage.setItem('cycle_data', JSON.stringify(data));
+    }
+  }catch(e){ /* offline or token issue, just keep local data */ }
+}
+
+function sortedDates(){ return Object.keys(data.entries).sort(); }
+
+// Group entries into cycles based on period-start days
+function getCycles(){
+  const dates = sortedDates();
+  const starts = [];
+  dates.forEach((ds,i)=>{
+    const e = data.entries[ds];
+    if(e.period){
+      const prev = dates[i-1];
+      const isStart = !prev || !data.entries[prev].period || daysBetween(parse(prev), parse(ds)) > 1;
+      if(isStart) starts.push(ds);
+    }
+  });
+  const cycles = starts.map((s,i)=>{
+    const end = starts[i+1] ? addDays(parse(starts[i+1]), -1) : null;
+    const days = dates.filter(ds => {
+      const d = parse(ds);
+      return d >= parse(s) && (!end || d <= end);
+    }).map(ds => ({ date: ds, ...data.entries[ds] }));
+    return { start: s, end: end ? fmt(end) : null, days };
+  });
+  return cycles;
+}
+
+function computeTempShift(days){
+  const temps = days.filter(d=>d.temp!=null && d.temp!=="").map(d=>({date:d.date, v:parseFloat(d.temp)}));
+  for(let start=6; start<=temps.length-3; start++){
+    const baseline = temps.slice(start-6, start).map(t=>t.v);
+    const maxBase = Math.max(...baseline);
+    const next3 = temps.slice(start, start+3);
+    if(next3[0].v > maxBase && next3[1].v > maxBase && next3[2].v >= maxBase + 0.2){
+      return { coverline: maxBase, shiftDate: next3[2].date, confirmDate: next3[2].date };
+    }
+  }
+  return null;
+}
+
+function computeMucusPeak(days){
+  const withMucus = days.filter(d=>d.mucus).map(d=>({date:d.date, rank: MUCUS_RANK[d.mucus]}));
+  for(let i=0;i<withMucus.length;i++){
+    if(withMucus[i].rank === 4){
+      // check if it's confirmed as peak: rank drops for the following observed day(s)
+      const rest = withMucus.slice(i+1);
+      if(rest.length>0 && rest[0].rank < 4){
+        // find last consecutive egg-white day before the drop
+        let last = i;
+        while(last+1<withMucus.length && withMucus[last+1].rank===4) last++;
+        return { peakDate: withMucus[last].date, confirmed:true };
+      }
+    }
+  }
+  // provisional: most recent egg-white day, unconfirmed
+  const eggDays = withMucus.filter(d=>d.rank===4);
+  if(eggDays.length) return { peakDate: eggDays[eggDays.length-1].date, confirmed:false };
+  return null;
+}
+
+function averageCycleLength(cycles){
+  const complete = cycles.filter(c=>c.end);
+  if(complete.length===0) return null;
+  const lens = complete.map(c=>daysBetween(parse(c.start), parse(c.end))+1);
+  return Math.round(lens.reduce((a,b)=>a+b,0)/lens.length);
+}
+
+function earliestShiftDayAcrossHistory(cycles){
+  const shiftDays = [];
+  cycles.forEach(c=>{
+    const shift = computeTempShift(c.days);
+    if(shift){
+      const dayNum = daysBetween(parse(c.start), parse(shift.shiftDate)) + 1;
+      shiftDays.push(dayNum);
+    }
+  });
+  if(shiftDays.length===0) return null;
+  return Math.min(...shiftDays);
+}
+
+function computeStatus(){
+  const cycles = getCycles();
+  if(cycles.length===0){
+    return { phase:"unbekannt", sub:"Trage Periode, Temperatur oder Schleim ein, um deinen Zyklus auszuwerten.", cycleDay:"–", avgLen:"–", nextPeriod:"–", explainer:"Noch keine Auswertung möglich – es fehlen Daten." };
+  }
+  const current = cycles[cycles.length-1];
+  const pastCycles = cycles.slice(0, -1);
+  const cycleDay = daysBetween(parse(current.start), new Date(fmt(new Date()))===null?parse(fmt(new Date())):parse(fmt(new Date()))) + 1;
+  const avgLen = averageCycleLength(pastCycles.length? pastCycles : cycles);
+
+  const tempShift = computeTempShift(current.days);
+  const mucusPeak = computeMucusPeak(current.days);
+
+  // determine conservative start of fertile window
+  let fertileWindowStartDay;
+  if(pastCycles.length >= 1){
+    const earliest = earliestShiftDayAcrossHistory(pastCycles);
+    fertileWindowStartDay = earliest ? Math.max(earliest - 8, 5) : 6;
+  } else {
+    fertileWindowStartDay = 6; // conservative default for first tracked cycles
+  }
+
+  const hasEarlyMucus = current.days.some(d => d.mucus && MUCUS_RANK[d.mucus] >= 2 && (daysBetween(parse(current.start), parse(d.date))+1) < fertileWindowStartDay);
+
+  let infertileAfterDate = null, ruleNote = "";
+  if(tempShift && mucusPeak && mucusPeak.confirmed){
+    const tempInfertile = addDays(parse(tempShift.confirmDate), 0); // evening of 3rd elevated day = that date
+    const mucusInfertile = addDays(parse(mucusPeak.peakDate), 4);
+    infertileAfterDate = tempInfertile > mucusInfertile ? tempInfertile : mucusInfertile;
+    ruleNote = `Temperaturanstieg bestätigt am ${tempShift.shiftDate} (Coverline ${tempShift.coverline.toFixed(2)} °C). Schleim-Höhepunkt bestätigt am ${mucusPeak.peakDate}. Unfruchtbar ab Abend des ${fmt(infertileAfterDate)} (spätere der beiden Regeln).`;
+  } else if(tempShift){
+    ruleNote = `Temperaturanstieg erkannt am ${tempShift.shiftDate}, aber der Schleim-Höhepunkt ist noch nicht bestätigt – die kombinierte Regel wartet auf beide Signale.`;
+  } else if(mucusPeak && mucusPeak.confirmed){
+    ruleNote = `Schleim-Höhepunkt bestätigt am ${mucusPeak.peakDate}, aber der Temperaturanstieg fehlt noch – die kombinierte Regel wartet auf beide Signale.`;
+  } else {
+    ruleNote = "Weder Temperaturanstieg noch bestätigter Schleim-Höhepunkt liegen bisher vor.";
+  }
+
+  const today = new Date(fmt(new Date()));
+  let phase, sub;
+  if(infertileAfterDate && today > infertileAfterDate){
+    phase = "safe";
+    sub = "Nach dem Eisprung, beide Regeln bestätigt.";
+  } else if(cycleDay < fertileWindowStartDay && !hasEarlyMucus){
+    phase = "safe";
+    sub = `Vor dem geschätzten fruchtbaren Fenster (ab Zyklustag ${fertileWindowStartDay}, konservativ geschätzt).`;
+  } else {
+    phase = "fertile";
+    sub = hasEarlyMucus ? "Frühe Schleimbeobachtung – fruchtbares Fenster kann früher beginnen." : "Fruchtbares Fenster oder Eisprung wahrscheinlich – Spermien können bis zu 5 Tage überleben.";
+  }
+
+  let nextPeriod = "–";
+  if(avgLen){
+    nextPeriod = fmt(addDays(parse(current.start), avgLen));
+  }
+
+  return {
+    phase, sub, cycleDay, avgLen: avgLen || "–", nextPeriod,
+    explainer: ruleNote + (avgLen ? ` Durchschnittliche Zykluslänge über ${(pastCycles.length||cycles.length)} Zyklen: ${avgLen} Tage.` : " Noch nicht genug abgeschlossene Zyklen für einen Durchschnitt.")
+  };
+}
+
+function renderStatus(){
+  const s = computeStatus();
+  const card = document.getElementById('statusCard');
+  const label = document.getElementById('statusLabel');
+  card.className = "status-card" + (s.phase==="fertile" ? " fertile" : s.phase==="safe" ? " safe" : "");
+  label.className = "status-label" + (s.phase==="fertile" ? " fertile" : s.phase==="safe" ? " safe" : "");
+  label.textContent = s.phase==="fertile" ? "Fruchtbar – Vorsicht" : s.phase==="safe" ? "Unfruchtbar" : "Noch keine Daten";
+  document.getElementById('statusSub').textContent = s.sub;
+  document.getElementById('metaCycleDay').textContent = s.cycleDay;
+  document.getElementById('metaCycleLen').textContent = s.avgLen;
+  document.getElementById('metaNextPeriod').textContent = s.nextPeriod;
+  document.getElementById('ruleExplainer').textContent = s.explainer;
+}
+
+function renderChart(){
+  const cycles = getCycles();
+  const svg = document.getElementById('chartSvg');
+  svg.innerHTML = "";
+  if(cycles.length===0) return;
+  const current = cycles[cycles.length-1];
+  const temps = current.days.filter(d=>d.temp!=null && d.temp!=="");
+  if(temps.length===0) return;
+
+  const W=340, H=200, padL=32, padR=10, padT=14, padB=28;
+  const vals = temps.map(d=>parseFloat(d.temp));
+  const min = Math.min(...vals) - 0.15, max = Math.max(...vals) + 0.15;
+  const n = current.days.length;
+  const x = i => padL + (i/(Math.max(n-1,1))) * (W-padL-padR);
+  const y = v => padT + (1 - (v-min)/(max-min)) * (H-padT-padB);
+
+  const ns = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){ const e=document.createElementNS(ns,tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+  // gridlines + y labels
+  for(let i=0;i<=3;i++){
+    const v = min + (max-min)*i/3;
+    const yy = y(v);
+    svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,stroke:"#EEE3E1",'stroke-width':1}));
+    const t = el('text',{x:4,y:yy+3,'font-size':8,fill:'#8B7E88'});
+    t.textContent = v.toFixed(1);
+    svg.appendChild(t);
+  }
+
+  // temperature line
+  const tempIndexMap = {};
+  current.days.forEach((d,i)=>{ if(d.temp!=null && d.temp!=="") tempIndexMap[d.date]=i; });
+  let pts = [];
+  temps.forEach(d=>{
+    const i = tempIndexMap[d.date];
+    pts.push(x(i)+","+y(parseFloat(d.temp)));
+  });
+  svg.appendChild(el('polyline',{points:pts.join(" "), fill:'none', stroke:'var(--accent-deep)'.replace('var(--accent-deep)','#9C3B5A'), 'stroke-width':2}));
+  temps.forEach(d=>{
+    const i = tempIndexMap[d.date];
+    svg.appendChild(el('circle',{cx:x(i),cy:y(parseFloat(d.temp)),r:2.6,fill:'#9C3B5A'}));
+  });
+
+  // coverline
+  const shift = computeTempShift(current.days);
+  if(shift){
+    const yy = y(shift.coverline);
+    const line = el('line',{x1:padL,x2:W-padR,y1:yy,y2:yy,stroke:'#9C3B5A','stroke-width':1,'stroke-dasharray':'4,3'});
+    svg.appendChild(line);
+  }
+
+  // mucus dots + period bar along bottom
+  current.days.forEach((d,i)=>{
+    if(d.period){
+      svg.appendChild(el('rect',{x:x(i)-3,y:H-padB+6,width:6,height:6,rx:1.5,fill:'#9C3B5A'}));
+    }
+    if(d.mucus){
+      const color = { "trocken":"#D9D2D6","feucht":"#E9C9D2","cremig":"#DB93A8","eiweiss":"#C6597A" }[d.mucus];
+      svg.appendChild(el('circle',{cx:x(i),cy:H-padB+16,r:3.4,fill:color}));
+    }
+  });
+
+  // x-axis cycle day labels (every 5 days)
+  current.days.forEach((d,i)=>{
+    const dayNum = i+1;
+    if(dayNum % 5 === 0 || i===0){
+      const t = el('text',{x:x(i),y:H-4,'font-size':7,fill:'#8B7E88','text-anchor':'middle'});
+      t.textContent = dayNum;
+      svg.appendChild(t);
+    }
+  });
+}
+
+let periodMode = false;
+
+async function togglePeriodDay(ds){
+  const existing = data.entries[ds] || {};
+  data.entries[ds] = { ...existing, period: !existing.period };
+  await saveData();
+  renderAll();
+}
+
+function renderCalendar(){
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  document.getElementById('calTitle').textContent = calCursor.toLocaleDateString('de-DE', { month:'long', year:'numeric' });
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = "";
+  ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach(d=>{
+    const el = document.createElement('div'); el.className="dow"; el.textContent=d; grid.appendChild(el);
+  });
+  const first = new Date(y,m,1);
+  let startOffset = (first.getDay()+6)%7; // Monday=0
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const todayStr = fmt(new Date());
+
+  const cycles = getCycles();
+  const currentCycle = cycles[cycles.length-1];
+  const status = computeStatus();
+
+  for(let i=0;i<startOffset;i++){
+    const e = document.createElement('div'); e.className="cal-day empty"; grid.appendChild(e);
+  }
+  for(let d=1; d<=daysInMonth; d++){
+    const ds = fmt(new Date(y,m,d));
+    const e = document.createElement('div'); e.className="cal-day";
+    e.textContent = d;
+    const entry = data.entries[ds];
+    if(entry && entry.period) e.classList.add('period');
+    else if(currentCycle){
+      const dayNum = daysBetween(parse(currentCycle.start), parse(ds)) + 1;
+      if(dayNum>=1 && dayNum<=daysBetween(parse(currentCycle.start), new Date())+1){
+        if(status.phase==="fertile") e.classList.add('fertile');
+        else if(status.phase==="safe") e.classList.add('safe');
+      }
+    }
+    if(ds===todayStr) e.classList.add('today');
+    if(periodMode){
+      e.classList.add('tappable');
+      e.addEventListener('click', ()=> togglePeriodDay(ds));
+    }
+    grid.appendChild(e);
+  }
+}
+
+function loadFormForToday(){
+  const todayStr = fmt(new Date());
+  document.getElementById('inpDate').value = todayStr;
+  fillFormFromEntry(todayStr);
+}
+function fillFormFromEntry(ds){
+  const e = data.entries[ds] || {};
+  document.getElementById('inpPeriod').checked = !!e.period;
+  document.getElementById('inpTemp').value = e.temp ?? "";
+  document.getElementById('inpMucus').value = e.mucus ?? "";
+  document.getElementById('inpPain').checked = !!e.pain;
+  document.getElementById('inpCervix').value = e.cervix ?? "";
+  document.getElementById('inpNotes').value = e.notes ?? "";
+}
+
+function renderAll(){
+  renderStatus();
+  renderChart();
+  renderCalendar();
+}
+
+document.getElementById('inpDate').addEventListener('change', (e)=> fillFormFromEntry(e.target.value));
+
+document.getElementById('btnSave').addEventListener('click', async ()=>{
+  const ds = document.getElementById('inpDate').value;
+  if(!ds) return;
+  data.entries[ds] = {
+    period: document.getElementById('inpPeriod').checked,
+    temp: document.getElementById('inpTemp').value || null,
+    mucus: document.getElementById('inpMucus').value || "",
+    pain: document.getElementById('inpPain').checked,
+    cervix: document.getElementById('inpCervix').value || "",
+    notes: document.getElementById('inpNotes').value || ""
+  };
+  await saveData();
+  renderAll();
+  const msg = document.getElementById('saveMsg');
+  msg.textContent = "Gespeichert.";
+  setTimeout(()=>{ msg.textContent=""; }, 1800);
+});
+
+document.getElementById('btnRecover').addEventListener('click', async ()=>{
+  const msg = document.getElementById('recoverMsg');
+  if(typeof window.storage === 'undefined'){
+    msg.textContent = "Nicht verfügbar – diese Datei läuft gerade eigenständig (nicht im Claude-Chat). Öffne die App direkt hier im Chat, um zu suchen.";
+    return;
+  }
+  try{
+    const res = await window.storage.get('cycle_data', false);
+    if(res && res.value){
+      const old = JSON.parse(res.value);
+      const count = old && old.entries ? Object.keys(old.entries).length : 0;
+      if(count > 0){
+        data.entries = { ...old.entries, ...data.entries };
+        await saveData();
+        renderAll();
+        loadFormForToday();
+        msg.textContent = `${count} alte Einträge gefunden und übernommen.`;
+      } else {
+        msg.textContent = "Gefunden, aber keine Einträge enthalten.";
+      }
+    } else {
+      msg.textContent = "Nichts gefunden im Kontospeicher.";
+    }
+  }catch(e){
+    msg.textContent = "Nichts gefunden im Kontospeicher.";
+  }
+});
+
+document.getElementById('btnExport').addEventListener('click', ()=>{
+  const box = document.getElementById('exportBox');
+  box.value = JSON.stringify(data);
+  box.style.display = 'block';
+  document.getElementById('btnCopyExport').style.display = 'block';
+});
+
+document.getElementById('btnCopyExport').addEventListener('click', async ()=>{
+  const box = document.getElementById('exportBox');
+  box.select();
+  try{
+    await navigator.clipboard.writeText(box.value);
+    document.getElementById('btnCopyExport').textContent = "Kopiert!";
+    setTimeout(()=>{ document.getElementById('btnCopyExport').textContent = "In Zwischenablage kopieren"; }, 1600);
+  }catch(e){ /* clipboard may be blocked, text stays selected for manual copy */ }
+});
+
+document.getElementById('btnImport').addEventListener('click', async ()=>{
+  const raw = document.getElementById('importBox').value.trim();
+  const msg = document.getElementById('importMsg');
+  if(!raw){ return; }
+  try{
+    const imported = JSON.parse(raw);
+    if(!imported || typeof imported.entries !== 'object') throw new Error("ungültig");
+    data.entries = { ...data.entries, ...imported.entries };
+    await saveData();
+    renderAll();
+    loadFormForToday();
+    msg.textContent = "Import erfolgreich.";
+    document.getElementById('importBox').value = "";
+  }catch(e){
+    msg.textContent = "Konnte den Text nicht lesen – bitte unverändert eingefügten Export-Text verwenden.";
+  }
+  setTimeout(()=>{ msg.textContent=""; }, 3000);
+});
+
+document.getElementById('btnReset').addEventListener('click', async ()=>{
+  if(confirm("Wirklich alle gespeicherten Zyklusdaten unwiderruflich löschen?")){
+    data = { entries: {} };
+    await saveData();
+    renderAll();
+    loadFormForToday();
+  }
+});
+
+document.getElementById('calPrev').addEventListener('click', ()=>{ calCursor.setMonth(calCursor.getMonth()-1); renderCalendar(); });
+document.getElementById('calNext').addEventListener('click', ()=>{ calCursor.setMonth(calCursor.getMonth()+1); renderCalendar(); });
+
+document.getElementById('btnPeriodMode').addEventListener('click', ()=>{
+  periodMode = !periodMode;
+  const btn = document.getElementById('btnPeriodMode');
+  const hint = document.getElementById('periodHint');
+  btn.classList.toggle('active', periodMode);
+  btn.textContent = periodMode ? "Fertig" : "Periode eingeben";
+  hint.classList.toggle('show', periodMode);
+  renderCalendar();
+});
+
+document.querySelectorAll('nav.tabbar button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabbar button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+(async function init(){
+  await loadData();
+  document.getElementById('ghToken').value = localStorage.getItem('gh_token') || "";
+  document.getElementById('ghGistId').value = localStorage.getItem('gh_gist_id') || "";
+  loadFormForToday();
+  renderAll();
+  await pullAndMergeOnStartup();
+  loadFormForToday();
+  renderAll();
+})();
+
+document.getElementById('btnGhSetup').addEventListener('click', async ()=>{
+  const status = document.getElementById('ghStatus');
+  const token = document.getElementById('ghToken').value.trim();
+  let gistId = document.getElementById('ghGistId').value.trim();
+  if(!token){ status.textContent = "Bitte zuerst den Zugriffscode eintragen."; return; }
+  status.textContent = "Richte ein …";
+  try{
+    if(!gistId){
+      gistId = await createGist(token);
+      document.getElementById('ghGistId').value = gistId;
+    }
+    localStorage.setItem('gh_token', token);
+    localStorage.setItem('gh_gist_id', gistId);
+    status.textContent = "Eingerichtet. Trag auf deinem anderen Gerät denselben Code und dieselbe Gist-ID ein.";
+  }catch(e){
+    status.textContent = "Fehler: " + e.message;
+  }
+});
+
+document.getElementById('btnGhSync').addEventListener('click', async ()=>{
+  const status = document.getElementById('ghStatus');
+  const { token, gistId } = ghConfig();
+  if(!token || !gistId){ status.textContent = "Erst einrichten (Code + Gist-ID)."; return; }
+  status.textContent = "Synchronisiere …";
+  try{
+    const remote = await pullFromGist(token, gistId);
+    if(remote && remote.entries) data.entries = { ...remote.entries, ...data.entries };
+    await saveData();
+    await pushToGist(token, gistId);
+    renderAll();
+    loadFormForToday();
+    status.textContent = "Synchronisiert.";
+  }catch(e){
+    status.textContent = "Fehler: " + e.message;
+  }
+});
+</script>
+</body>
+</html>
